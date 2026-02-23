@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import multer from "multer";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 // Suppress favicon error
-app.get("/favicon.ico", (req, res) => res.status(204).end());
+
 
 // Create uploads folder if it doesn't exist
 if (!fs.existsSync("uploads")) {
@@ -17,6 +17,7 @@ if (!fs.existsSync("uploads")) {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.get("/favicon.ico", (req, res) => res.status(204).end());
 app.use(express.json());
 app.use(express.static("public"));
 
