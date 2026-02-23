@@ -1,14 +1,13 @@
 import express from "express";
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
-dotenv.config();
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
-
+dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
