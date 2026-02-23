@@ -66,6 +66,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     console.error("WARNING: GROQ_API_KEY is not set");
 }
   try {
+     console.log("Upload received:", req.file?.mimetype, req.file?.size);
     const file = req.file;
     let text = "";
 
