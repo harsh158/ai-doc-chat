@@ -1,6 +1,7 @@
 import express from "express";
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
+dotenv.config();
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -8,7 +9,6 @@ import multer from "multer";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 
-dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -16,6 +16,9 @@ app.use(express.json());
 app.use(express.static("public"));
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+if (!process.env.GROQ_API_KEY) {
+  console.error("WARNING: GROQ_API_KEY is not set");
+}
 
 // Multer setup for file uploads
 const upload = multer({ dest: "uploads/" });
