@@ -10,11 +10,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.get("/favicon.ico", (req, res) => res.status(204).end());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(express.static("public"));
 
-// Multer setup - memory storage (no disk needed)
-const upload = multer({ storage: multer.memoryStorage() });
+// Multer setup - memory storage, 10MB limit for Railway compatibility
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
 
 // Store document chunks in memory
 let documentChunks = [];
@@ -49,11 +52,26 @@ function findRelevantChunks(question, chunks, topN = 5) {
     .join("\n\n");
 }
 
+// Multer error handler
+function handleMulterError(err, req, res, next) {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ success: false, error: "File too large. Maximum size is 10MB." });
+    }
+    return res.status(400).json({ success: false, error: err.message });
+  }
+  next(err);
+}
+
 // Upload endpoint
-app.post("/upload", upload.single("file"), async (req, res) => {
+app.post("/upload", upload.single("file"), handleMulterError, async (req, res) => {
   try {
-    console.log("Upload received:", req.file?.mimetype, req.file?.size);
     const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, error: "No file uploaded. Please select a PDF or TXT file." });
+    }
+
+    console.log("Upload received:", file.mimetype, file.size);
     let text = "";
 
     if (file.mimetype === "application/pdf") {

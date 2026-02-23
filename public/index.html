@@ -166,17 +166,37 @@
         const formData = new FormData();
         formData.append("file", file);
 
-        const res = await fetch("/upload", { method: "POST", body: formData });
-        const data = await res.json();
+        try {
+          const res = await fetch("/upload", { method: "POST", body: formData });
+          const contentType = res.headers.get("content-type");
+          let data;
 
-        if (data.success) {
-          fileStatus.textContent = `✓ ${file.name} (${data.chunks} chunks)`;
-          fileStatus.className = "loaded";
-          addMessage(`Document uploaded! Created ${data.chunks} searchable chunks. Ask me anything about it!`, "ai");
-          input.placeholder = "Ask a question about your document...";
-        } else {
+          if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+          } else {
+            const text = await res.text();
+            if (res.status === 413) {
+              addMessage("Upload failed: File too large. Maximum size is 10MB.", "ai");
+              fileStatus.textContent = "Upload failed";
+              return;
+            }
+            addMessage("Upload failed: " + (text || res.statusText || "Server error"), "ai");
+            fileStatus.textContent = "Upload failed";
+            return;
+          }
+
+          if (data.success) {
+            fileStatus.textContent = `✓ ${file.name} (${data.chunks} chunks)`;
+            fileStatus.className = "loaded";
+            addMessage(`Document uploaded! Created ${data.chunks} searchable chunks. Ask me anything about it!`, "ai");
+            input.placeholder = "Ask a question about your document...";
+          } else {
+            fileStatus.textContent = "Upload failed";
+            addMessage("Upload failed: " + (data.error || "Unknown error"), "ai");
+          }
+        } catch (err) {
           fileStatus.textContent = "Upload failed";
-          addMessage("Upload failed: " + data.error, "ai");
+          addMessage("Upload failed: " + (err.message || "Network error. Check your connection."), "ai");
         }
       });
 
