@@ -1,23 +1,19 @@
 import express from "express";
 import Groq from "groq-sdk";
-import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
-dotenv.config();
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json());
 app.use(express.static("public"));
 
-const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
-if (!process.env.GROQ_API_KEY) {
-  console.error("WARNING: GROQ_API_KEY is not set");
-}
+
 
 // Multer setup for file uploads
 const upload = multer({ dest: "uploads/" });
@@ -57,6 +53,10 @@ function findRelevantChunks(question, chunks, topN = 5) {
 
 // Upload endpoint
 app.post("/upload", upload.single("file"), async (req, res) => {
+    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    if (!process.env.GROQ_API_KEY) {
+    console.error("WARNING: GROQ_API_KEY is not set");
+}
   try {
     const file = req.file;
     let text = "";
@@ -92,6 +92,10 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
 // Ask endpoint with RAG
 app.post("/ask", async (req, res) => {
+    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+if (!process.env.GROQ_API_KEY) {
+  console.error("WARNING: GROQ_API_KEY is not set");
+}
   try {
     const { question } = req.body;
 
