@@ -24,7 +24,7 @@ app.use(express.static("public"));
 
 
 // Multer setup for file uploads
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Store document chunks in memory
 let documentChunks = [];
@@ -70,18 +70,18 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     let text = "";
 
     if (file.mimetype === "application/pdf") {
-    const dataBuffer = new Uint8Array(fs.readFileSync(file.path));
-    const pdf = await pdfjsLib.getDocument({ data: dataBuffer }).promise;
-    const pages = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
+  const dataBuffer = new Uint8Array(file.buffer);
+  const pdf = await pdfjsLib.getDocument({ data: dataBuffer }).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     const pageText = content.items.map(item => item.str).join(" ");
     pages.push(pageText);
-    }
-    text = pages.join("\n");
-    }   else {
-    text = fs.readFileSync(file.path, "utf-8");
+  }
+  text = pages.join("\n");
+} else {
+  text = file.buffer.toString("utf-8");
 }
 
     // Clean up uploaded file
