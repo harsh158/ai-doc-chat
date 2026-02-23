@@ -5,25 +5,15 @@ import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-// Suppress favicon error
-
-
-// Create uploads folder if it doesn't exist
-if (!fs.existsSync("uploads")) {
-  fs.mkdirSync("uploads");
-}
-
-
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
 app.get("/favicon.ico", (req, res) => res.status(204).end());
 app.use(express.json());
 app.use(express.static("public"));
 
-
-
-// Multer setup for file uploads
+// Multer setup - memory storage (no disk needed)
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Store document chunks in memory
@@ -43,7 +33,7 @@ function chunkText(text, chunkSize = 500, overlap = 100) {
 // Simple relevance scoring using keyword matching
 function findRelevantChunks(question, chunks, topN = 5) {
   const keywords = question.toLowerCase().split(" ").filter(w => w.length > 3);
-  
+
   const scored = chunks.map((chunk, index) => {
     const lower = chunk.toLowerCase();
     const score = keywords.reduce((acc, word) => {
@@ -61,32 +51,25 @@ function findRelevantChunks(question, chunks, topN = 5) {
 
 // Upload endpoint
 app.post("/upload", upload.single("file"), async (req, res) => {
-    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    if (!process.env.GROQ_API_KEY) {
-    console.error("WARNING: GROQ_API_KEY is not set");
-}
   try {
-     console.log("Upload received:", req.file?.mimetype, req.file?.size);
+    console.log("Upload received:", req.file?.mimetype, req.file?.size);
     const file = req.file;
     let text = "";
 
     if (file.mimetype === "application/pdf") {
-  const dataBuffer = new Uint8Array(file.buffer);
-  const pdf = await pdfjsLib.getDocument({ data: dataBuffer }).promise;
-  const pages = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items.map(item => item.str).join(" ");
-    pages.push(pageText);
-  }
-  text = pages.join("\n");
-} else {
-  text = file.buffer.toString("utf-8");
-}
-
-    // Clean up uploaded file
-    fs.unlinkSync(file.path);
+      const dataBuffer = new Uint8Array(file.buffer);
+      const pdf = await pdfjsLib.getDocument({ data: dataBuffer }).promise;
+      const pages = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(" ");
+        pages.push(pageText);
+      }
+      text = pages.join("\n");
+    } else {
+      text = file.buffer.toString("utf-8");
+    }
 
     // Chunk the document
     documentChunks = chunkText(text);
@@ -94,23 +77,26 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     res.json({ success: true, chunks: documentChunks.length, preview: text.slice(0, 200) });
   } catch (err) {
-    console.error(err);
+    console.error("Upload error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
 // Ask endpoint with RAG
 app.post("/ask", async (req, res) => {
-    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
-if (!process.env.GROQ_API_KEY) {
-  console.error("WARNING: GROQ_API_KEY is not set");
-}
   try {
     const { question } = req.body;
 
     if (documentChunks.length === 0) {
       return res.json({ answer: "Please upload a document first!" });
     }
+
+    if (!process.env.GROQ_API_KEY) {
+      console.error("WARNING: GROQ_API_KEY is not set");
+      return res.status(500).json({ answer: "API key not configured." });
+    }
+
+    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
     // Find relevant chunks only
     const relevantContext = findRelevantChunks(question, documentChunks);
@@ -133,9 +119,10 @@ ${relevantContext}`,
 
     res.json({ answer: response.choices[0].message.content });
   } catch (err) {
-    console.error(err);
+    console.error("Ask error:", err);
     res.status(500).json({ answer: "Something went wrong: " + err.message });
   }
 });
 
-app.listen(3000, () => console.log("Server running at http://localhost:3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
