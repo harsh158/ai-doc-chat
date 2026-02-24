@@ -350,11 +350,6 @@
             fileStatus.textContent = "Upload failed";
             return;
           }
-          if (res.status === 401) {
-            addMessage("Session expired. Please log in again.", "ai");
-            showAuthScreen();
-            return;
-          }
           if (data.success) {
             fileStatus.textContent = `✓ ${file.name} (${data.chunks} chunks)`;
             fileStatus.className = "loaded";

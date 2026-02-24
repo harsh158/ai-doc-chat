@@ -1,6 +1,5 @@
 import express from "express";
 import session from "express-session";
-import { createRequire } from "module";
 import Groq from "groq-sdk";
 import fs from "fs";
 import path from "path";
@@ -8,15 +7,10 @@ import { fileURLToPath } from "url";
 import multer from "multer";
 import bcrypt from "bcryptjs";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import * as db from "./db.js";
-
-const require = createRequire(import.meta.url);
-const PgSession = require("connect-pg-simple")(session);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
-const pool = db.getPool();
 const USERS_FILE = path.join(__dirname, "data", "users.json");
 
 function readUsers() {
@@ -33,19 +27,16 @@ function writeUsers(users) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), "utf-8");
 }
 
-const sessionConfig = {
-  secret: process.env.SESSION_SECRET || "change-me-in-production",
-  resave: false,
-  saveUninitialized: false,
-  cookie: { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
-};
-if (pool) {
-  sessionConfig.store = new PgSession({ pool, createTableIfMissing: true });
-}
-
 app.get("/favicon.ico", (req, res) => res.status(204).end());
 app.use(express.json({ limit: "10mb" }));
-app.use(session(sessionConfig));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "change-me-in-production",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 },
+  })
+);
 app.use(express.static("public"));
 
 function requireAuth(req, res, next) {
@@ -115,18 +106,6 @@ app.post("/api/auth/register", async (req, res) => {
     if (p.length < 6) {
       return res.status(400).json({ success: false, error: "Password must be at least 6 characters." });
     }
-    if (pool) {
-      const existing = await db.findUserByEmail(pool, e);
-      if (existing) {
-        return res.status(400).json({ success: false, error: "Email already registered." });
-      }
-      const id = crypto.randomUUID();
-      const hash = await bcrypt.hash(p, 10);
-      await db.createUser(pool, { id, email: e, passwordHash: hash });
-      req.session.userId = id;
-      req.session.userEmail = e;
-      return res.json({ success: true, user: { id, email: e } });
-    }
     const users = readUsers();
     if (users.some((u) => u.email === e)) {
       return res.status(400).json({ success: false, error: "Email already registered." });
@@ -151,15 +130,6 @@ app.post("/api/auth/login", async (req, res) => {
     const p = password || "";
     if (!e || !p) {
       return res.status(400).json({ success: false, error: "Email and password required." });
-    }
-    if (pool) {
-      const user = await db.findUserByEmail(pool, e);
-      if (!user || !(await bcrypt.compare(p, user.password_hash))) {
-        return res.status(401).json({ success: false, error: "Invalid email or password." });
-      }
-      req.session.userId = user.id;
-      req.session.userEmail = user.email;
-      return res.json({ success: true, user: { id: user.id, email: user.email } });
     }
     const users = readUsers();
     const user = users.find((u) => u.email === e);
@@ -268,18 +238,4 @@ ${relevantContext}`,
 });
 
 const PORT = process.env.PORT || 3000;
-
-async function start() {
-  if (pool) {
-    await db.initDb(pool);
-    console.log("Database connected (PostgreSQL).");
-  } else {
-    console.log("No DATABASE_URL set; using file-based users and memory sessions.");
-  }
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}
-
-start().catch((err) => {
-  console.error("Startup failed:", err);
-  process.exit(1);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
