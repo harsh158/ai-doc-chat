@@ -109,86 +109,9 @@
       }
       #send-btn:hover { background: #1d4ed8; }
       #send-btn:disabled { background: #333; cursor: not-allowed; }
-
-      #auth-screen {
-        width: 100%;
-        max-width: 360px;
-        padding: 2rem;
-        background: #111;
-        border: 1px solid #222;
-        border-radius: 12px;
-        margin: auto;
-      }
-      #auth-screen h2 { font-size: 1.25rem; margin-bottom: 1.25rem; color: #e5e5e5; }
-      #auth-screen .tabs { display: flex; gap: 0; margin-bottom: 1.25rem; }
-      #auth-screen .tabs button {
-        flex: 1;
-        padding: 10px;
-        background: #1a1a1a;
-        border: 1px solid #333;
-        color: #888;
-        cursor: pointer;
-        font-size: 0.9rem;
-      }
-      #auth-screen .tabs button:first-child { border-radius: 8px 0 0 0; }
-      #auth-screen .tabs button:last-child { border-radius: 0 8px 0 0; }
-      #auth-screen .tabs button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
-      #auth-screen input {
-        width: 100%;
-        padding: 12px 14px;
-        margin-bottom: 12px;
-        border-radius: 8px;
-        border: 1px solid #333;
-        background: #1a1a1a;
-        color: #fff;
-        font-size: 0.95rem;
-      }
-      #auth-screen input:focus { outline: none; border-color: #2563eb; }
-      #auth-screen .auth-submit {
-        width: 100%;
-        padding: 12px;
-        background: #2563eb;
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        margin-top: 4px;
-      }
-      #auth-screen .auth-submit:hover { background: #1d4ed8; }
-      #auth-screen .auth-error { color: #ef4444; font-size: 0.85rem; margin-top: 8px; }
-      #app-screen { display: none; flex-direction: column; align-items: center; width: 100%; height: 100%; }
-      #app-screen.visible { display: flex; }
-      #user-info { font-size: 0.8rem; color: #666; margin-right: 8px; }
-      #logout-btn {
-        padding: 6px 12px;
-        background: transparent;
-        border: 1px solid #444;
-        border-radius: 6px;
-        color: #888;
-        cursor: pointer;
-        font-size: 0.8rem;
-      }
-      #logout-btn:hover { color: #fff; border-color: #666; }
     </style>
   </head>
   <body>
-    <div id="auth-screen">
-      <h2>Sign in</h2>
-      <div class="tabs">
-        <button type="button" id="tab-login" class="active">Login</button>
-        <button type="button" id="tab-register">Register</button>
-      </div>
-      <form id="auth-form">
-        <input type="email" id="auth-email" placeholder="Email" required autocomplete="email" />
-        <input type="password" id="auth-password" placeholder="Password (min 6 characters)" required minlength="6" autocomplete="current-password" />
-        <button type="submit" class="auth-submit" id="auth-submit">Login</button>
-        <div id="auth-error" class="auth-error"></div>
-      </form>
-    </div>
-
-    <div id="app-screen">
     <header>
       <h1>AI Document Chat</h1>
       <div id="upload-area">
@@ -197,8 +120,6 @@
           Upload Document
         </button>
         <input id="file-input" type="file" accept=".txt,.pdf" />
-        <span id="user-info"></span>
-        <button type="button" id="logout-btn">Logout</button>
       </div>
     </header>
 
@@ -217,7 +138,6 @@
       />
       <button id="send-btn">Send</button>
     </div>
-    </div>
 
     <script>
       if (window.location.protocol === "file:") {
@@ -232,80 +152,11 @@
         throw new Error("App must be opened via http://localhost:3000");
       }
 
-      const authScreen = document.getElementById("auth-screen");
-      const appScreen = document.getElementById("app-screen");
-      const authForm = document.getElementById("auth-form");
-      const authEmail = document.getElementById("auth-email");
-      const authPassword = document.getElementById("auth-password");
-      const authError = document.getElementById("auth-error");
-      const authSubmit = document.getElementById("auth-submit");
-      const tabLogin = document.getElementById("tab-login");
-      const tabRegister = document.getElementById("tab-register");
-      const userInfo = document.getElementById("user-info");
-      const logoutBtn = document.getElementById("logout-btn");
       const chatContainer = document.getElementById("chat-container");
       const input = document.getElementById("question-input");
       const sendBtn = document.getElementById("send-btn");
       const fileInput = document.getElementById("file-input");
       const fileStatus = document.getElementById("file-status");
-
-      const fetchOpts = (opts = {}) => ({ ...opts, credentials: "include" });
-
-      function showAuthScreen() {
-        authScreen.style.display = "block";
-        appScreen.classList.remove("visible");
-      }
-      function showAppScreen(user) {
-        authScreen.style.display = "none";
-        appScreen.classList.add("visible");
-        userInfo.textContent = user ? user.email : "";
-      }
-
-      async function checkAuth() {
-        try {
-          const res = await fetch("/api/auth/me", fetchOpts());
-          if (res.ok) {
-            const data = await res.json();
-            showAppScreen(data.user);
-            return;
-          }
-        } catch (_) {}
-        showAuthScreen();
-      }
-
-      let isRegister = false;
-      tabLogin.addEventListener("click", () => { isRegister = false; tabLogin.classList.add("active"); tabRegister.classList.remove("active"); authSubmit.textContent = "Login"; authError.textContent = ""; });
-      tabRegister.addEventListener("click", () => { isRegister = true; tabRegister.classList.add("active"); tabLogin.classList.remove("active"); authSubmit.textContent = "Register"; authError.textContent = ""; });
-
-      authForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        authError.textContent = "";
-        const email = authEmail.value.trim();
-        const password = authPassword.value;
-        if (!email || !password) { authError.textContent = "Email and password required."; return; }
-        if (password.length < 6) { authError.textContent = "Password must be at least 6 characters."; return; }
-        authSubmit.disabled = true;
-        try {
-          const url = isRegister ? "/api/auth/register" : "/api/auth/login";
-          const res = await fetch(url, fetchOpts({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) }));
-          const data = await res.json();
-          if (data.success) {
-            showAppScreen(data.user);
-          } else {
-            authError.textContent = data.error || "Failed";
-          }
-        } catch (err) {
-          authError.textContent = err.message || "Network error";
-        }
-        authSubmit.disabled = false;
-      });
-
-      logoutBtn.addEventListener("click", async () => {
-        await fetch("/api/auth/logout", fetchOpts({ method: "POST" }));
-        showAuthScreen();
-      });
-
-      checkAuth();
 
       function addMessage(text, role) {
         const div = document.createElement("div");
@@ -316,7 +167,6 @@
         return div;
       }
 
-      // Handle file upload
       fileInput.addEventListener("change", async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -328,7 +178,7 @@
         formData.append("file", file);
 
         try {
-          const res = await fetch("/upload", fetchOpts({ method: "POST", body: formData }));
+          const res = await fetch("/upload", { method: "POST", body: formData });
           const contentType = res.headers.get("content-type");
           let data;
 
@@ -336,11 +186,6 @@
             data = await res.json();
           } else {
             const text = await res.text();
-            if (res.status === 401) {
-              addMessage("Session expired. Please log in again.", "ai");
-              showAuthScreen();
-              return;
-            }
             if (res.status === 413) {
               addMessage("Upload failed: File too large. Maximum size is 10MB.", "ai");
               fileStatus.textContent = "Upload failed";
@@ -376,18 +221,12 @@
         const loadingDiv = addMessage("Thinking...", "ai");
         loadingDiv.classList.add("loading");
 
-        const response = await fetch("/ask", fetchOpts({
+        const response = await fetch("/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question }),
-        }));
+        });
 
-        if (response.status === 401) {
-          loadingDiv.innerHTML = "Session expired. Please log in again.";
-          showAuthScreen();
-          sendBtn.disabled = false;
-          return;
-        }
         const data = await response.json();
         loadingDiv.innerHTML = data.answer.replace(/\n/g, "<br/>");
         loadingDiv.classList.remove("loading");
